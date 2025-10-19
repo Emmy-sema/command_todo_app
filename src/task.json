@@ -1,7 +1,13 @@
 {
-  "task": [],
   "completed": [
     "go to bed",
-    "do laundry"
+    "do laundry",
+    "Go to bed",
+    "do coding challenges"
+  ],
+  "task": [
+    "wake up",
+    "complete homework",
+    "do senior project"
   ]
 }

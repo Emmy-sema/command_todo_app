@@ -39,8 +39,6 @@ fn done(id: usize) -> bool {
 fn get_tasks() -> HashMap<String, Vec<String>>{
     // create hashmap to store list
     
-
-
     // get list and 
     let json_data = match fs::read_to_string("src/task.json") {
         Ok(data) => data,
@@ -67,9 +65,24 @@ fn list() {
     };
 
 }
-// fn add_task() -> String{
+fn add_task(task: String) -> bool{
+    
+    let mut maped : HashMap<String, Vec<String>> = get_tasks();
+    let mut tasks = maped.get_mut("task").unwrap();
+    
+    
+    tasks.push(task);
+    let json_data = serde_json::to_string_pretty(&maped).unwrap();
 
-// }
+    let mut file = fs::File::create("src/task.json")
+        .expect("Could not create file");
+
+    file.write_all(json_data.as_bytes())
+         .expect("Could not write to file");
+
+    true
+
+}
 fn main() {
 
     let args: Vec<String> = env::args().collect();
@@ -89,7 +102,13 @@ fn main() {
                     Err(_) => panic!("Please enter a number here"),
                 };
                 done(argument);
-            };
+            }else if command == "add"{
+                let task:&String = &args[3];
+                println!("check");
+                add_task(task.to_string());
+                println!("Task successfully added to list");
+                
+            }
 
         }else if args.len() == 3{
             
