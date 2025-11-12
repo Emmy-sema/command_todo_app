@@ -1,13 +1,42 @@
 {
-  "completed": [
-    "go to bed",
-    "do laundry",
-    "Go to bed",
-    "do coding challenges"
+  "children": [
+    {
+      "name": "Drink Tea",
+      "completed": false,
+      "children": [],
+      "number_of_tasks_completed": 0,
+      "number_of_tasks": 1
+    },
+    {
+      "name": "Drink ",
+      "completed": false,
+      "children": [
+        {
+          "name": "get water",
+          "completed": false,
+          "children": [],
+          "number_of_tasks_completed": 0,
+          "number_of_tasks": 1
+        }
+      ],
+      "number_of_tasks_completed": 0,
+      "number_of_tasks": 1
+    },
+    {
+      "name": "Drink Water ",
+      "completed": false,
+      "children": [],
+      "number_of_tasks_completed": 0,
+      "number_of_tasks": 1
+    },
+    {
+      "name": "Drink ",
+      "completed": false,
+      "children": [],
+      "number_of_tasks_completed": 0,
+      "number_of_tasks": 1
+    }
   ],
-  "task": [
-    "wake up",
-    "complete homework",
-    "do senior project"
-  ]
+  "number_of_tasks": 6,
+  "number_of_tasks_completed": 0
 }

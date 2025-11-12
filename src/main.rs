@@ -1,120 +1,285 @@
 use std::env;
-use std::fmt;
-use serde_json::Result;
-use std::fs;
-use std::any::type_name;
-use std::collections::HashMap;
 use std::io::Write;
+use serde::Deserialize;
+use serde::Serialize;
+use std::fs;
+use std::path::Path;
 
-fn print_type_of<T> (_:&T){
-    println!("{}", std::any::type_name::<T>());
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Task{
+    name: String,
+    completed: bool,
+    // #[serde(with = "rc_refcell_serde")]
+    // children: Vec<Rc<RefCell<Task>>>,
+    children:Vec<Task>,
+    number_of_tasks_completed: i8,
+    number_of_tasks: i8
 }
 
-fn done(id: usize) -> bool {
-    let mut maped: HashMap<String, Vec<String>> = get_tasks();
 
-    if let Some(task) = maped.get_mut("task") {
-        if task.len() >= id {
-            let removed : String = task.remove(id-1);
-            let new_list = maped.get_mut("completed").unwrap();
-            new_list.push(removed);
-        }else{
-            return false;
+#[derive(Serialize, Deserialize, Debug)]
+struct User{
+    // #[serde(with = "rc_refcell_serde")]
+    // children: Vec<Rc<RefCell<Task>>>,
+    children:Vec<Task>,
+    number_of_tasks: i8,
+    number_of_tasks_completed: i8    
+}
+
+
+impl Task{
+    
+    fn display(&self,level:i8,idx:usize){
+
+        // let mut ouput: String = String::new();
+        let space = " ".repeat(level as usize);
+        println!("{}[{}] {}", space, idx, self.name);
+
+        for i in 0..self.children.len(){
+            let child = &self.children[i];
+            child.display(level + 1,i as usize);
+        }
+
+
+    }
+}
+impl User{
+    fn new() -> Self{
+       User{
+        children:vec![],
+        number_of_tasks_completed: 0,
+        number_of_tasks: 1
+        // todo: Task{
+        //         name: name,
+        //         completed: completed,
+        //         parent: parent,
+        //         children: vec![],
+        //         number_of_tasks_completed: number_of_tasks_completed,
+        //         number_of_tasks: number_of_tasks
+        //     }
+        }
+    }
+
+    fn add_task(&mut self, name: String, id:Option<String>) -> Result<String,String> {
+
+        // let new_task = Rc::new(RefCell::new(Task {
+        //     name: name,
+        //     completed: false,
+        //     // parent: self,
+        //     children: vec![],
+        //     number_of_tasks_completed: 0,
+        //     number_of_tasks: 1       
+        // }));
+
+        let new_task = Task {
+            name: name,
+            completed: false,
+            // parent: self,
+            children: vec![],
+            number_of_tasks_completed: 0,
+            number_of_tasks: 1 
         };
-    };
-  
-    // write new updates back to jason file
 
-    let mut file = fs::File::create("src/task.json")
-        .expect("Could not create file");
-    let json_data = serde_json::to_string_pretty(&maped).unwrap();
+        if self.children.len() == 0{
+            self.children.push(new_task);
+            self.number_of_tasks += 1;
+            return Ok("Task added Successfully".to_string())
+        }
+        match id{
+            Some(id_str) => {
+                let parts: Vec<&str> = id_str.split(".").collect();
+            
+                if parts.is_empty(){
+                    return Err(format!("No task selected"));
+                }                
 
-    file.write_all(json_data.as_bytes())
-        .expect("Could not write to file");
+                let mut indices: Vec<usize> = vec![];
+                for part in parts{
+                    match part.trim().parse::<usize>(){
+                        Ok(id) => indices.push(id),
+                        Err(_) => return Err(format!("Make sure your id pointer are all i8"))
+                    }
+                    
+                };
+
+                let mut current = &mut self.children;
+                for &i in &indices[..indices.len().saturating_sub(1)]{
+                    
+                    if i >= current.len(){
+                        return Err(format!("Make sure your id pointer are all i8"));
+                    }
+
+                    current = &mut current[i].children;
+                    
+                }
+
+                let last_idx = *indices.last().unwrap_or(&0);
+                if last_idx > current.len() {
+                    return Err("Invalid task position.".to_string());
+                }
+
+                current.insert(last_idx, new_task);
+                self.number_of_tasks += 1;
+            },
+
+            None =>{
+                self.children.push(new_task);
+                self.number_of_tasks += 1
+            }
+        }
+      
+        Ok("Task added successfully.".to_string())
+
+        
+    }
+
+    fn display(&self){
+
+        for i in 0..self.children.len(){
+            let task = &self.children[i];
+            task.display(0,i);
+        }
+    }
+
     
-    true
 
+    
 }
 
-fn get_tasks() -> HashMap<String, Vec<String>>{
-    // create hashmap to store list
-    
-    // get list and 
-    let json_data = match fs::read_to_string("src/task.json") {
-        Ok(data) => data,
-        Err(_) => panic!("Something went wrong reading src/task.json")
-    };
 
-    let maped: HashMap<String, Vec<String>> = serde_json::from_str(&json_data)
-        .expect("something went wrong with parsing the json object");
+fn get_data() -> Result<User,String>{
+    let path = Path::new("src/task.json");
 
-    maped
+    if path.exists() && path.is_file(){
+        let data = match fs::read_to_string("src/task.json"){
+            Ok(f) => {
+                f
+            },
+            Err(err) => {
+                
+                return Err(format!("{:?}",err));
+            }
+        };
+
+        let user: User = match serde_json::from_str(&data){
+            Ok(res) => {
+                res
+            },
+            Err(_)=>{
+                return Ok(User::new());
+                
+            }
+        };
+
+        Ok(user)
+    }else {
+        let _ = fs::File::create("src/task.json").expect("Was not able to create file");
+        return Ok(User::new());
+    }
+
+   
 }
 
-fn list() {
-
-    let maped: HashMap<String, Vec<String>> = get_tasks();
-
-
-    for (key,value) in &maped {
-        println!("========{key}=======");        
-
-        for (i,item) in value.iter().enumerate(){
-            println!("{}. {}",i + 1, item)
+fn write_to_storage(user:User) -> Result<String,String>{
+    let mut file = match fs::File::create("src/task.json"){
+        Ok(f) =>{
+            f
+        },
+        Err(err) => {
+            return Err(format!("{:?}",err));
+        }
+    };
+    let json_data: String = match serde_json::to_string_pretty(&user){
+        Ok (data)=> {
+            data
+        },
+        Err(err) =>{
+            return Err(format!("{:?}",err));
         }
     };
 
+ 
+    match file.write(json_data.as_bytes()){
+        Ok(_) => {
+            return Ok("Successfully wrote to storage".to_string())
+        },
+        Err(err)=> {
+            return Err(format!("{:?}",err));
+        }
+    };
+    
 }
-fn add_task(task: String) -> bool{
-    
-    let mut maped : HashMap<String, Vec<String>> = get_tasks();
-    let mut tasks = maped.get_mut("task").unwrap();
-    
-    
-    tasks.push(task);
-    let json_data = serde_json::to_string_pretty(&maped).unwrap();
-
-    let mut file = fs::File::create("src/task.json")
-        .expect("Could not create file");
-
-    file.write_all(json_data.as_bytes())
-         .expect("Could not write to file");
-
-    true
-
-}
-fn main() {
+fn main(){ 
 
     let args: Vec<String> = env::args().collect();
-    let app = &args[1];
-    let command = &args[2];
-
-    if app != "todo" {
-        println!("Incorrect program name: {app}");
-    }else{
-       
-        // program name is correct
-        if args.len() == 4 {
-            
-            if command == "done" {
-                let argument: usize = match args[3].trim().parse::<usize>() {
-                    Ok(num) => num,
-                    Err(_) => panic!("Please enter a number here"),
-                };
-                done(argument);
-            }else if command == "add"{
-                let task:&String = &args[3];
-                println!("check");
-                add_task(task.to_string());
-                println!("Task successfully added to list");
-                
-            }
-
-        }else if args.len() == 3{
-            
-            //  this includes things like view list
-            list();
-        };
-        
+    if args.len() == 1{
+        println!("No arguemnts passed");
+        println!("Type: 'cargo run -- /help', for help");
+        return
     };
+    let query = &args[1];
+    match query.as_str() {
+        "add" => {
+            if args.len() < 4 {
+                println!("Usage: cargo run -- add <position> '<task name>'");
+                return;
+            };
+            let path: String = args[2].clone();
+            let name: String = args[3].clone();
+
+            let mut user:User = match get_data(){
+                Ok(user) => {
+                    user
+                },
+                Err(err) => {
+                    return println!("{:?}",err);
+                }
+            };
+            match user.add_task(name, Some(path)) {
+                Ok(res) => {
+                    println!("{:?}",res);
+                },
+                Err(err) => {
+                    println!("{:?}",err);
+                }
+            }
+            let _ = write_to_storage(user);
+        },
+        "display" =>{
+            match get_data(){
+                Ok(user) => {
+                    user.display();
+                },
+                Err(err) => {
+                    return println!("{:?}",err);
+                }
+            };            
+        },
+        "/help" =>{
+           println!(
+                "
+                Usage Examples:
+
+                Add to list:
+                cargo run -- add 0 'Breath'
+
+                    Notes:
+                    - 'add' is the command.
+                    - '0' specifies where to add the task.
+                    - 'Breath' is the task itself.
+
+                    Adding subtasks:
+                    - '0.0' will add a subtask under task 0.
+                    - Using '0.1' when there is no task 0 or subtask 1 will fail.
+
+                Display list:
+                cargo run -- display
+                "
+            );
+        },
+        _ => println!("Not a valid command. Type 'cargo run -- /help' for help."),
+    }
+
+    
 }
